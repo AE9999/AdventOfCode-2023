@@ -123,7 +123,6 @@ fn span2number(input: &Vec<Vec<char>>,
     value.parse::<i32>().unwrap()
 }
 
-
 fn read_input(filename: &String) ->  io::Result<Vec<Vec<char>>> {
     let file_in = File::open(filename)?;
     Ok(BufReader::new(file_in).lines().map(|x| x.unwrap().chars().collect()).collect())
