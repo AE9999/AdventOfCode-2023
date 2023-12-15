@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::fs::File;
 use std::io::{self, BufReader, BufRead};
 use std::env;
@@ -29,13 +30,38 @@ struct Pattern {
 impl Pattern {
 
     fn is_mirror_column(&self, index: usize) -> bool {
-        for y in self.height() {
+        let dist_0 = index + 1;
+        let dist_end: usize = self.width() - index;
 
+        for y in (0..self.height()) {
+            let row = self.map.get(y).unwrap();
+            for offset in 0..min(dist_0, dist_end) {
+                let l = row.get(index - offset).unwrap();
+                let r = row.get(index + 1 + offset).unwrap();
+                if l != r {
+                    return false
+                }
+            }
         }
         true
     }
 
     fn is_mirror_row(&self, index: usize) -> bool {
+
+        let dist_0 = index + 1;
+        let dist_end: usize = self.height() - index;
+
+        for x in (0..self.width()) {
+
+            for offset in 0..min(dist_0, dist_end) {
+                let l = 0;
+                let r = 0;
+                if l != r {
+                    return false
+                }
+            }
+        }
+
         true
     }
 
