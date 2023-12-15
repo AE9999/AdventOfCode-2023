@@ -81,36 +81,28 @@ fn solve1(problem: &Problem) -> (usize, usize) {
     //problem.debug(&visited_positions);
     let sol1 = *visited_positions.iter().map(|(_k,v)| v).max().unwrap();
 
-    let mut intersection_x : HashSet<Point> = HashSet::new();
-    let mut inside = false;
+    let mut inside_positions: HashSet<Point> = HashSet::new();
 
-    for y in problem.height() {
-        for x in problem.width() {
-            if () {
-                inside = !inside
-            } else if (inside) {
-                intersection_x.insert(Point {
-                    x,y
-                })
+
+    for y in 0..problem.height() {
+        let mut inside = false;
+
+        for x in 0..problem.width() {
+
+            let point = Point {
+                x,y
+            };
+
+            if problem.char_at(&point) == '|' && visited_positions.contains_key(&point)  {
+                inside = !inside;
+            }
+            else if inside && !visited_positions.contains_key(&point) {
+                inside_positions.insert(point);
             }
         }
     }
 
-    inside = false;
-    let mut intersection_y : HashSet<Point> = HashSet::new();
-    for x in problem.height() {
-        for y in problem.width() {
-            else if (inside) {
-                intersection_x.insert(Point {
-                    x,y
-                })
-            }
-        }
-    }
-
-    let sol2 = 0;
-
-    (sol1, sol2)
+    (sol1, inside_positions.len())
 }
 
 
