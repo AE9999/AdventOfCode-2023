@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::{HashSet, VecDeque};
 use std::fs::File;
 use std::io::{self, BufReader, BufRead};
@@ -12,6 +13,8 @@ fn main() -> io::Result<()> {
     println!("How many tiles end up being energized? {:?}",
              solve1(&problem));
 
+    println!("How many tiles are energized in that configuration? {:?}",
+             solve2(&problem));
     Ok(())
 }
 
@@ -28,6 +31,53 @@ fn solve1(problem: &Problem) -> usize {
         },
     };
 
+    solve_for_initial_state(problem, state)
+}
+
+
+fn solve2(problem: &Problem) -> usize {
+
+    let mut max_energization: usize = 0;
+    let going_right = Point { x: 1, y:0 };
+    let going_left = Point { x: -1, y:0 };
+    let going_up = Point { x: 0, y: -1 };
+    let going_down = Point { x: 0, y: 1 };
+
+    for y in 0..(problem.height()) {
+        for x in 0..problem.width() {
+            let mut allowed_directions: Vec<Point> = Vec::new();
+            if y == 0 {
+                allowed_directions.push(going_down.clone());
+            }
+            if y == problem.height() {
+                allowed_directions.push(going_up.clone());
+            }
+            if x == 0 {
+                allowed_directions.push(going_right.clone());
+            }
+            if x == problem.width() {
+                allowed_directions.push(going_left.clone());
+            }
+            for allowed_direction in allowed_directions {
+                let state = State {
+                    position: Point {
+                        x: x as i64,
+                        y: y as i64
+                    },
+                    direction: allowed_direction,
+                };
+                max_energization = max(max_energization,
+                                       solve_for_initial_state(problem,
+                                                                   state))
+            }
+        }
+    }
+
+    max_energization
+}
+
+fn solve_for_initial_state(problem: &Problem, state: State) -> usize {
+
     let mut to_process: VecDeque<State> = VecDeque::new();
     to_process.push_back(state);
 
@@ -37,12 +87,12 @@ fn solve1(problem: &Problem) -> usize {
         let state = to_process.pop_back().unwrap();
         seen_states.insert(state.clone());
         problem.calculate_next_state(&state)
-               .into_iter()
-               .for_each(|next_state|
-                   if !seen_states.contains(&next_state) {
-                        to_process.push_back(next_state.clone());
-                   }
-               )
+            .into_iter()
+            .for_each(|next_state|
+                if !seen_states.contains(&next_state) {
+                    to_process.push_back(next_state.clone());
+                }
+            )
     }
 
     //problem.debug(&seen_states);
