@@ -88,12 +88,12 @@ fn solve1(problem: &Problem) -> (usize, usize) {
         let mut inside = false;
 
         for x in 0..problem.width() {
-
+            let crossing_nodes: Vec<char> = vec!['|', 'F', '7', 'F', 'J'];
             let point = Point {
                 x,y
             };
 
-            if problem.char_at(&point) == '|' && visited_positions.contains_key(&point)  {
+            if crossing_nodes.contains(&problem.char_at(&point)) && visited_positions.contains_key(&point)  {
                 inside = !inside;
             }
             else if inside && !visited_positions.contains_key(&point) {
@@ -101,6 +101,8 @@ fn solve1(problem: &Problem) -> (usize, usize) {
             }
         }
     }
+
+    problem.debug(&inside_positions);
 
     (sol1, inside_positions.len())
 }
@@ -121,6 +123,20 @@ impl Problem {
 
     fn char_at(&self, point: &Point) -> char {
         *self.maze.get(point.y as usize).unwrap().get(point.x as usize).unwrap()
+    }
+
+    fn debug(&self, inside_positions: &HashSet<Point>) {
+        for y in 0..self.height() {
+            let mut  row = self.maze.get(y as usize).unwrap().clone();
+            for x in 0..self.width() {
+                let point = Point {x, y };
+                if inside_positions.contains(&point) {
+                    row[x as usize] = 'I'
+                }
+            }
+            let s: String =  row.iter().collect();
+            println!("{:?}", s);
+        }
     }
 }
 
