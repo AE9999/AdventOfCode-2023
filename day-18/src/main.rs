@@ -12,6 +12,10 @@ fn main() -> io::Result<()> {
     println!("how many cubic meters of lava could it hold? {:?}",
              solve1(&problem));
 
+
+    println!("How many cubic meters of lava could the lagoon hold? {:?}",
+             solve2(&problem));
+
     Ok(())
 }
 
@@ -38,7 +42,7 @@ fn solve1(problem: &Problem) -> usize {
             };
         dug_out_points.extend(postion.all_points_from_me_in_direction(direction,
                                                                    instruction.amount.clone()));
-        postion = postion.add(&direction.mul(instruction.amount as i32));
+        postion = postion.add(&direction.mul(instruction.amount as i64));
     }
 
     let maxy = dug_out_points.iter().map(|point| point.y).max().unwrap();
@@ -97,6 +101,91 @@ fn solve1(problem: &Problem) -> usize {
     dug_out_points.len()
 }
 
+fn solve2(problem: &Problem) -> usize {
+
+    let mut start: Point = Point {x:0, y:0};
+
+    let mut spans: Vec<Span> = Vec::new();
+
+    for instruction in &problem.instructions {
+        let (length, direction) = code2length_and_direction(instruction.code.as_str());
+
+        let end = start.add(&direction.mul(length as i64));
+
+
+        let up = Point { x: 0, y: -1 };
+        let down = Point { x: 0, y: 1 };
+        let left = Point { x: -1, y: 0 };
+        let right = Point { x: 1, y: 0 };
+
+        let span =
+            match direction {
+                _ if direction == up => { Span { start: end.clone() , end: start.clone() } },
+                _ if direction == down => { Span { start: start.clone() , end: end.clone() } },
+                _ if direction == left => { Span { start: end.clone() , end: start.clone() } },
+                _ if direction == right => { Span { start: start.clone(), end: end.clone() } },
+                _ => panic!("Unexpected state")
+            };
+
+        spans.push(span);
+
+        start = end;
+    }
+
+    let involved_points =
+        spans.iter()
+             .map(|span| vec![span.start.clone(), span.end.clone()].clone())
+             .flatten()
+             .collect::<Vec<Point>>();
+
+    let maxy = involved_points.iter().map(|point| point.y).max().unwrap();
+    let miny = involved_points.iter().map(|point| point.y).min().unwrap();
+
+    let mut amount_filled_additionally_filled: usize = 0;
+    for y in maxy..(miny-1) {
+
+        let intersections: Vec<Span> = spans.iter()
+                                            .map(|span| span.intersection(y))
+                                            .filter(|span| span.is_some())
+                                            .map(|span| span.unwrap())
+                                            .collect();
+
+        let startx = intersections.iter().map(|span|span.start.x).min().unwrap();
+        let endx = intersections.iter().map(|span|span.end.x).max().unwrap();
+
+        let amount_filled_on_this_line: usize =
+            ((endx - startx) as usize) - intersections.iter().map(|span| span.amount()).sum::<usize>();
+        amount_filled_additionally_filled += amount_filled_on_this_line;
+
+
+    }
+
+    // TODO add other stuff already added
+    amount_filled_additionally_filled
+}
+
+fn code2length_and_direction(code: &str) -> (usize, Point) {
+    let up = Point { x: 0, y: -1 };
+    let down = Point { x: 0, y: 1 };
+    let left = Point { x: -1, y: 0 };
+    let right = Point { x: 1, y: 0 };
+
+
+    let hexstr = code.chars().skip(1).take(5).collect::<String>();
+    let length = usize::from_str_radix(hexstr.as_str(),
+                                       16).unwrap();
+    let direction =
+        match code.chars().last().unwrap() {
+            '0' => right,
+            '1' => down,
+            '2' => left,
+            '3' => up,
+            _ => panic!("unexpected char")
+        };
+
+    (length, direction)
+}
+
 #[derive(Clone, Hash, Debug)]
 struct Problem {
     instructions: Vec<Instruction>
@@ -110,9 +199,44 @@ struct Instruction {
 }
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Clone, Hash, Debug)]
+struct Span {
+    start: Point,
+    end: Point,
+}
+
+impl Span {
+
+    fn intersection(&self, y: i64) -> Option<Self> {
+        if y >= self.start.y && y <= self.end.y {
+
+            let start = Point {
+              x: self.start.x,
+              y,
+            };
+
+            let end = Point {
+                x: self.end.x,
+                y,
+            };
+
+            Some(Span {
+                start,
+                end
+            })
+        } else {
+            None
+        }
+    }
+
+    fn amount(&self) -> usize {
+        ((self.end.x - self.start.x).abs() + (self.end.y - self.start.y).abs()) as usize
+    }
+}
+
+#[derive(PartialOrd, Ord, PartialEq, Eq, Clone, Hash, Debug)]
 struct Point {
-    x: i32,
-    y: i32,
+    x: i64,
+    y: i64,
 }
 
 impl Point {
@@ -124,7 +248,7 @@ impl Point {
         }
     }
 
-    fn mul(&self, amount: i32) -> Self {
+    fn mul(&self, amount: i64) -> Self {
         Point {
             x: self.x * amount,
             y: self.y * amount
@@ -144,7 +268,7 @@ impl Point {
     }
 
     fn all_points_from_me_in_direction(&self, direction: &Point, amount: u32) -> Vec<Self> {
-        (1..(amount + 1)).map(|i| self.add(&direction.mul(i as i32))).collect()
+        (1..(amount + 1)).map(|i| self.add(&direction.mul(i as i64))).collect()
     }
 }
 
