@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::io::{self, BufReader, BufRead};
 use std::env;
+use std::ops::Range;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -19,11 +20,147 @@ fn main() -> io::Result<()> {
 }
 
 fn solve2(problem: &Problem) -> usize {
-    0
+    let mut problem = problem.clone();
+
+    let workflow_a = Workflow {
+        name: String::from("A"),
+        rules: Vec::new()
+    };
+
+    let workflow_r = Workflow {
+        name: String::from("R"),
+        rules: Vec::new()
+    };
+
+    problem.workflows.insert(String::from("A"), workflow_a);
+
+    problem.workflows.insert(String::from("R"), workflow_r);
+
+
+    let known_parts: Vec<char> = vec!['x', 'm', 'a', 's'];
+    let mut ranges: HashMap<char, Range<usize>> = HashMap::new();
+    for known_part in &known_parts {
+        ranges.insert(*known_part, 1..4001);
+    }
+
+    let workflow = problem.workflows.get("in").unwrap();
+
+    let state = State {
+        ranges,
+        workflow,
+        rule_index: 0,
+    };
+
+    let mut queue: VecDeque<State> = VecDeque::new();
+    queue.push_back(state);
+
+    let mut amount_of_possible_state: usize = 0;
+
+    while let Some(state) = queue.pop_front() {
+
+        if state.workflow.name == "R" {
+            // all rejected
+            continue
+        } else if state.workflow.name == "A" {
+            // all accepted
+            let newly_discovered_states =
+                known_parts.iter()
+                           .map(|c| state.ranges.get(c).unwrap().len())
+                           .fold(1, |acc, x| acc * x);
+            amount_of_possible_state += newly_discovered_states
+        } else {
+            let rule = state.workflow.rules.get(state.rule_index).unwrap();
+
+            if rule.condition.is_empty() {
+                let state = State {
+                    ranges: state.ranges,
+                    workflow: problem.workflows.get(rule.result.as_str()).unwrap() ,
+                    rule_index: 0,
+                };
+                queue.push_back(state);
+            } else {
+                let part = rule.condition.chars().next().unwrap();
+
+                let operator: char = rule.condition.chars().skip(1).next().unwrap();
+
+                let amount: usize = rule.condition.chars().skip(2).collect::<String>().parse::<usize>().unwrap();
+
+                let effected_range = state.ranges.get(&part).unwrap();
+
+                let ranges =
+                    match operator {
+                        '<' =>  (get_subrange_that_is_lower(effected_range,amount, false),
+                                 get_subrange_that_is_higher(effected_range,amount, true)),
+                        '>' => (get_subrange_that_is_higher(effected_range,amount, false),
+                                get_subrange_that_is_lower(effected_range,amount, true)),
+                        _  => panic!("unexpected state"),
+                    };
+
+                if ranges.0.is_some() {
+                    // handle matching stuff
+                    let mut next_ranges = state.ranges.clone();
+                    next_ranges.insert(part, ranges.0.unwrap());
+                    let state = State {
+                        ranges: next_ranges,
+                        workflow: problem.workflows.get(rule.result.as_str()).unwrap(),
+                        rule_index: 0,
+                    };
+                    queue.push_back(state);
+                }
+
+                if ranges.1.is_some() {
+                    // handle non-matching stuff.
+                    let mut next_ranges = state.ranges.clone();
+                    next_ranges.insert(part, ranges.1.unwrap());
+                    let state = State {
+                        ranges: next_ranges,
+                        workflow: state.workflow,
+                        rule_index: state.rule_index + 1,
+                    };
+                    queue.push_back(state);
+                }
+            }
+        }
+
+    }
+
+    amount_of_possible_state
+}
+
+fn get_subrange_that_is_higher(range: &Range<usize>, bound: usize, inclusive: bool) -> Option<Range<usize>> {
+    let offset = if inclusive { 0 } else { 1 };
+    let r = (bound + offset)..range.end;
+    if r.is_empty() {
+        None
+    } else {
+        Some(r)
+    }
+}
+
+fn get_subrange_that_is_lower(range: &Range<usize>, bound: usize, inclusive: bool) -> Option<Range<usize>> {
+    let bound = if inclusive { bound + 1} else { bound };
+    let r =
+        if bound <= range.end {
+            range.start..bound
+        } else {
+            range.clone()
+        };
+
+    if r.is_empty() {
+        None
+    } else {
+        Some(r)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct State<'a> {
+    ranges: HashMap<char, Range<usize>>,
+    workflow: &'a Workflow,
+    rule_index: usize,
 }
 
 fn solve1(problem: &Problem) -> usize {
-    println!("{:?}", problem);
 
     let known_parts: Vec<char> = vec!['x', 'm', 'a', 's'];
     let mut accepted_parts: HashMap<char, usize> =  HashMap::new();
@@ -32,7 +169,6 @@ fn solve1(problem: &Problem) -> usize {
     }
 
     for input in &problem.inputs {
-        println!("input: {:?}", input);
 
         let mut workflow = problem.workflows.get("in");
         assert!(workflow.is_some());
@@ -43,10 +179,9 @@ fn solve1(problem: &Problem) -> usize {
             }
 
             let workflow_ = workflow.unwrap();
-            println!("workflow: {:?}", workflow_);
             for rule in &workflow_.rules {
                 if rule.matches(input) {
-                    println!("matched: {:?}", rule.result.as_str());
+
                     match rule.result.as_str() {
                         "A" => {
                             for known_part in &known_parts {
@@ -70,8 +205,6 @@ fn solve1(problem: &Problem) -> usize {
         }
     }
 
-    println!("{:?}", accepted_parts);
-
     accepted_parts.iter().map(|(_,v)| v).sum()
 }
 
@@ -83,6 +216,7 @@ struct Problem {
 
 #[derive(Clone, Debug)]
 struct Workflow {
+    name: String,
     rules: Vec<Rule>,
 }
 
@@ -111,6 +245,7 @@ impl Rule {
             _  => panic!("unexpected state"),
         }
     }
+    
 }
 
 #[derive(Clone, Debug)]
@@ -153,6 +288,7 @@ fn read_input(filename: &String) ->  io::Result<Problem> {
                     });
 
                     let workflow = Workflow {
+                        name: name.clone(),
                         rules,
                     };
                     workflows.insert(name, workflow);
